@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LSDM Daily Schedule</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f1f4; color: #333; min-height: 100vh; }
+  button { cursor: pointer; }
+  
+  @media print {
+    @page { size: 11in 17in landscape; margin: 0.4in 0.5in; }
+    body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; background: #fff; }
+    .no-print { display: none !important; }
+    .print-area { max-width: none !important; padding: 0 !important; margin: 0 !important; background: #fff !important; box-shadow: none !important; border: none !important; border-radius: 0 !important; }
+    .print-content { break-inside: avoid; }
+    table { page-break-inside: auto; }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    thead { display: table-header-group; }
+  }
+  @media screen {
+    .print-area { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04); border: 1px solid #e5e7eb; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const e = React.createElement;
+const { useState, useMemo, useEffect } = React;
+
+const RAW = [
+"SATURDAY CLASSES\n9:00 AM,,Dance With Me,BLUE,30 min\n9:15 AM,,Acro 1,BALLROOM,45 min\n9:15 AM,,Ballet 1,CORAL,45 min\n9:15 AM,,Creative Movement,YELLOW,30 min\n9:30 AM,,Ballet 2,TEAL,45 min\n9:30 AM,,Tap 2/3,BLUE,60 min\n9:45 AM,,Creative Movement,YELLOW,30 min\n10:00 AM,,Acro 2,BALLROOM,60 min\n10:00 AM,,Mighty Movers,CORAL,30 min\n10:15 AM,,Musical Theatre 2,TEAL,60 min\n10:30 AM,,Ballet 1,BLUE,45 min\n10:30 AM,,Creative Movement,CORAL,30 min\n10:45 AM,,Tap 1,YELLOW,45 min\n11:00 AM,,Acro 4,BALLROOM,60 min\n11:00 AM,,Ballet 2,CORAL,45 min\n11:15 AM,,Ballet 4,TEAL,60 min\n11:15 AM,,Jazz 1,BLUE,45 min\n11:30 AM,,Ballet 3,YELLOW,60 min\n12:00 PM,,Hip Hop 1,CORAL,45 min\n12:00 PM,,Jazz 2,BLUE,60 min",
+"SUNDAY CLASSES\n9:00 AM,,Beginner Tap Ages 7+,YELLOW,60 min\n9:00 AM,,Dance With Me,BLUE,30 min\n9:15 AM,,Acro 1,BALLROOM,45 min\n9:15 AM,,Creative Movement,TEAL,30 min\n9:30 AM,,Mighty Movers,BLUE,30 min\n9:45 AM,,Ballet 1,TEAL,45 min\n10:00 AM,,Acro 2,BALLROOM,60 min\n10:00 AM,,Mighty Movers,BLUE,30 min\n10:00 AM,,Pre-Comp Tap,YELLOW,60 min\n10:30 AM,,Ballet 1/2,TEAL,45 min\n10:30 AM,,Dance With Me,BLUE,30 min\n11:00 AM,,Acro 3,BALLROOM,60 min\n11:00 AM,,Pre-Comp Jazz,YELLOW,60 min\n11:05 AM,,Hip Hop 1,LILAC,45 min\n11:15 AM,,Ballet 2,TEAL,45 min\n12:00 PM,,Creative Movement,CORAL,30 min\n12:00 PM,,FT Acro C,BALLROOM,90 min\n12:00 PM,,FT Junior Jazz,YELLOW,75 min\n12:00 PM,,Hip Hop 2,BLUE,45 min\n12:15 PM,,Ballet 3,TEAL,60 min",\n6:15 PM,,PT Senior Ballet,TEAL,90 min\n7:15 PM,,Musical Theatre 3,BALLROOM,60 min\n7:30 PM,,Sr. Lyrical/Jazz Combo,BLUE,60 min",
+"WEDNESDAY CLASSES\n9:45 AM,,Dance With Me,TEAL,45 min\n10:30 AM,,Creative Movement,TEAL,30 min\n4:15 PM,,Acro 3,BALLROOM,60 min\n4:15 PM,,Ballet 4,YELLOW,60 min\n4:15 PM,,Breaking Ages 5-8,BLUE,60 min\n4:15 PM,,PT Mini Jazz,TEAL,60 min\n5:15 PM,,Breaking Ages 9+,CORAL,60 min\n5:15 PM,,FT Jr/Inter Ballet,TEAL,90 min\n5:15 PM,,FT Mini Ballet,YELLOW,75 min\n5:15 PM,,Musical Theatre 1,BALLROOM,45 min\n5:15 PM,,PT Mini Tap,BLUE,60 min\n6:00 PM,,PT Senior Ballet,BALLROOM,75 min\n6:15 PM,,Ballet Technique,CORAL,90 min\n6:15 PM,,PT Jr/Pre-Inter Tap,BLUE,60 min\n6:30 PM,,Hip Hop 2,YELLOW,45 min\n6:45 PM,,FT Mini Jazz,TEAL,90 min\n7:15 PM,,FT Jr/Inter Cont/Lyrical,BALLROOM,60 min\n7:15 PM,,Hip Hop 4/5,BLUE,60 min\n7:15 PM,,PT Pre-Inter Ballet,YELLOW,90 min\n8:15 PM,,FT Inter Jazz,TEAL,75 min",
+"THURSDAY CLASSES\n4:15 PM,,Acro 2,BALLROOM,60 min\n4:15 PM,,Acro 4,LILAC,60 min\n4:15 PM,,Ballet 1/2,CORAL,45 min\n4:15 PM,,Novice Tap,BLUE,60 min\n4:30 PM,,Jazz 1,TEAL,45 min\n5:00 PM,,Creative Movement,CORAL,30 min\n5:15 PM,,FT Mini Conditioning,YELLOW,45 min\n5:15 PM,,Musical Theatre 2,TEAL,60 min\n5:15 PM,,PT Inter Musical Theatre,BALLROOM,60 min\n5:15 PM,,Pre-Comp Jazz,BLUE,60 min\n6:00 PM,,Ballet 5/6,YELLOW,75 min\n6:15 PM,,FT Mini Tap,BLUE,60 min\n6:15 PM,,PT Inter Acro,BALLROOM,60 min\n6:15 PM,,PT Pre-Inter Jazz,TEAL,60 min\n6:15 PM,,Pre-Comp Ballet,CORAL,60 min\n7:15 PM,,Contemporary 2,TEAL,60 min\n7:15 PM,,FT Teen Tap,BLUE,60 min\n7:15 PM,,PT Pre-Inter Acro,BALLROOM,60 min\n8:15 PM,,FT Inter Jazz,BALLROOM,75 min\n8:15 PM,,PT Senior Lyrical/Jazz,TEAL,75 min",
+"FRIDAY CLASSES\n4:15 PM,,Ballet 3,CORAL,60 min\n4:15 PM,,FT Inter Tap,BLUE,60 min\n4:15 PM,,Hip Hop 1,YELLOW,45 min\n4:15 PM,,PT Junior Ballet,TEAL,60 min\n4:30 PM,,Acro 1,BALLROOM,45 min\n5:00 PM,,Mighty Movers,YELLOW,30 min\n5:15 PM,,FT Junior Ballet,TEAL,75 min\n5:15 PM,,FT Mini/Petite Lyrical,BALLROOM,60 min\n5:30 PM,,Ballet 1/2,YELLOW,45 min\n5:30 PM,,PT Junior Jazz,BLUE,60 min\n6:15 PM,,Ballet 4,YELLOW,60 min\n6:30 PM,,FT Production,BALLROOM,90 min\n6:30 PM,,FT Production,TEAL,90 min\n6:30 PM,,Jazz 2,BLUE,60 min\n7:15 PM,,Tween/Teen Ballet,YELLOW,75 min\n7:30 PM,,Musical Theatre 4,BLUE,60 min\n8:05 PM,,FT Inter Ballet,TEAL,90 min"
+];
+
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const STUDIOS = ['BLUE','BALLROOM','CORAL','YELLOW','TEAL','LILAC'];
+const SC = {
+  BLUE:     { bg:'#D6EAFF', border:'#2680EB', head:'#1A6DD6', text:'#0C3B6E' },
+  BALLROOM: { bg:'#E8E0D6', border:'#7A6850', head:'#5C4D3C', text:'#3B3128' },
+  CORAL:    { bg:'#FFD6DA', border:'#F2425A', head:'#E63550', text:'#6b1a27' },
+  YELLOW:   { bg:'#FFF0C2', border:'#E8A317', head:'#D49312', text:'#5c3d08' },
+  TEAL:     { bg:'#C2F5EB', border:'#12B89A', head:'#0FA885', text:'#0a4a3c' },
+  LILAC:    { bg:'#E8DAF8', border:'#8B5CF6', head:'#7340DB', text:'#3B1A6E' },
+};
+
+const toMin = (s) => { if(!s) return 0; const m=s.trim().match(/(\d+):(\d+)\s*(AM|PM)/i); if(!m) return 0; let h=+m[1]; const mn=+m[2]; const p=m[3].toUpperCase(); if(h===12&&p==='AM') h=0; if(h!==12&&p==='PM') h+=12; return h*60+mn; };
+const fmtTime = (m) => { const h=Math.floor(m/60),mn=m%60,p=h>=12?'PM':'AM'; return (h%12===0?12:h%12)+':'+String(mn).padStart(2,'0')+' '+p; };
+
+const ALL = (() => {
+  const out = [];
+  RAW.forEach(csv => {
+    const lines = csv.split('\n').map(l=>l.trim()).filter(Boolean);
+    const day = DAYS.find(d=>lines[0].toUpperCase().includes(d.toUpperCase()))||'Monday';
+    for(let i=1;i<lines.length;i++){
+      const p=lines[i].split(','); if(p.length<5) continue;
+      const time=p[0].trim(),name=p[2].trim(),studio=p[3].trim().toUpperCase();
+      const dur=parseInt(p[4].replace(/\D/g,''),10)||60;
+      if(!time||!name) continue;
+      out.push({id:day+'-'+i,day,time,name,studio,duration:dur,startMin:toMin(time),endMin:toMin(time)+dur});
+    }
+  });
+  return out;
+})();
+
+// ââ Shared styles ââ
+const thS = { padding:'8px 10px', color:'#fff', fontSize:11, fontWeight:800, letterSpacing:'1px', borderBottom:'none' };
+const tdS = { padding:'6px 10px', borderBottom:'1px solid #eee' };
+const thG = { padding:'10px 8px', color:'#fff', fontSize:11, fontWeight:800, letterSpacing:'0.5px', textAlign:'center', borderBottom:'2px solid #ddd' };
+
+// ââ List View ââ
+function ListView({ classes, day }) {
+  const groups = useMemo(() => {
+    const g=[]; let last=null;
+    classes.forEach(c => { if(c.time!==last){g.push({time:c.time,items:[]});last=c.time;} g[g.length-1].items.push(c); });
+    return g;
+  }, [classes]);
+
+  return e('div', { className:'print-content' },
+    // Header
+    e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',borderBottom:'3px solid #1a1a2e',paddingBottom:8,marginBottom:16} },
+      e('div', null,
+        e('div', { style:{fontSize:32,fontWeight:900,letterSpacing:'-0.5px',color:'#1a1a2e',lineHeight:1} }, day.toUpperCase()+' CLASS SCHEDULE'),
+        e('div', { style:{fontSize:13,color:'#666',marginTop:4,fontWeight:500} }, 'Leslieville School of Dance & Music \u00b7 '+classes.length+' classes')
+      ),
+      e('div', { style:{textAlign:'right'} },
+        e('div', { style:{fontSize:11,color:'#999',fontWeight:600} }, '1461 Gerrard St E'),
+        e('div', { style:{fontSize:11,color:'#999'} }, 'danceandmusic.ca')
+      )
+    ),
+    // Legend
+    e('div', { style:{display:'flex',gap:12,marginBottom:16,flexWrap:'wrap'} },
+      STUDIOS.map(s => {
+        if(!classes.some(c=>c.studio===s)) return null;
+        return e('div', { key:s, style:{display:'flex',alignItems:'center',gap:5} },
+          e('div', { style:{width:12,height:12,borderRadius:3,background:SC[s].head,border:'1px solid '+SC[s].border} }),
+          e('span', { style:{fontSize:11,fontWeight:700,color:'#444',letterSpacing:'0.5px'} }, s)
+        );
+      })
+    ),
+    // Table
+    e('table', { style:{width:'100%',borderCollapse:'collapse',fontSize:13} },
+      e('thead', null,
+        e('tr', { style:{background:'#1a1a2e'} },
+          e('th', { style:{...thS,width:110,textAlign:'left'} }, 'TIME'),
+          e('th', { style:{...thS,textAlign:'left'} }, 'CLASS'),
+          e('th', { style:{...thS,width:120,textAlign:'center'} }, 'STUDIO'),
+          e('th', { style:{...thS,width:80,textAlign:'center'} }, 'DURATION'),
+          e('th', { style:{...thS,width:100,textAlign:'center'} }, 'ENDS')
+        )
+      ),
+      e('tbody', null,
+        groups.map((g,gi) => g.items.map((cls,ci) => {
+          const sc=SC[cls.studio]||{bg:'#f5f5f5',border:'#ccc',text:'#333'};
+          const isFirst=ci===0; const isAlt=gi%2===1;
+          return e('tr', { key:cls.id, style:{background:isAlt?'#f8f9fb':'#fff', borderTop:isFirst&&gi>0?'2px solid #e2e5ea':undefined} },
+            e('td', { style:{...tdS,fontWeight:isFirst?800:400,fontSize:isFirst?14:13,color:isFirst?'#1a1a2e':'#999',verticalAlign:'top',paddingTop:isFirst?10:6} }, isFirst?cls.time:''),
+            e('td', { style:{...tdS,fontWeight:700,fontSize:14,color:sc.text,paddingTop:isFirst?10:6} }, cls.name),
+            e('td', { style:{...tdS,textAlign:'center',paddingTop:isFirst?10:6} },
+              e('span', { style:{display:'inline-block',padding:'2px 10px',borderRadius:4,background:sc.bg,border:'1.5px solid '+sc.border,fontSize:11,fontWeight:800,color:sc.text,letterSpacing:'0.5px'} }, cls.studio)
+            ),
+            e('td', { style:{...tdS,textAlign:'center',fontWeight:600,color:'#555',paddingTop:isFirst?10:6} }, cls.duration+' min'),
+            e('td', { style:{...tdS,textAlign:'center',color:'#888',fontWeight:500,paddingTop:isFirst?10:6} }, fmtTime(cls.endMin))
+          );
+        }))
+      )
+    )
+  );
+}
+
+// ââ Grid View ââ
+function GridView({ classes, day }) {
+  const active = useMemo(() => STUDIOS.filter(s=>classes.some(c=>c.studio===s)), [classes]);
+  const byStudio = useMemo(() => { const m={}; active.forEach(s=>m[s]=classes.filter(c=>c.studio===s)); return m; }, [classes,active]);
+  const times = useMemo(() => [...new Set(classes.map(c=>c.startMin))].sort((a,b)=>a-b), [classes]);
+
+  return e('div', { className:'print-content' },
+    e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',borderBottom:'3px solid #1a1a2e',paddingBottom:8,marginBottom:12} },
+      e('div', null,
+        e('div', { style:{fontSize:30,fontWeight:900,letterSpacing:'-0.5px',color:'#1a1a2e',lineHeight:1} }, day.toUpperCase()+' \u2014 BY STUDIO'),
+        e('div', { style:{fontSize:12,color:'#666',marginTop:4,fontWeight:500} }, 'Leslieville School of Dance & Music \u00b7 '+classes.length+' classes \u00b7 '+active.length+' studios')
+      ),
+      e('div', { style:{textAlign:'right'} },
+        e('div', { style:{fontSize:11,color:'#999',fontWeight:600} }, '1461 Gerrard St E'),
+        e('div', { style:{fontSize:11,color:'#999'} }, 'danceandmusic.ca')
+      )
+    ),
+    e('table', { style:{width:'100%',borderCollapse:'collapse',tableLayout:'fixed'} },
+      e('thead', null,
+        e('tr', null,
+          e('th', { style:{...thG,width:90,background:'#1a1a2e'} }, 'TIME'),
+          active.map(s => e('th', { key:s, style:{...thG,background:SC[s].head,letterSpacing:'1px'} }, s))
+        )
+      ),
+      e('tbody', null,
+        times.map((t,ti) =>
+          e('tr', { key:t, style:{background:ti%2===1?'#f8f9fb':'#fff'} },
+            e('td', { style:{padding:'8px 6px',borderBottom:'1px solid #e8e8e8',borderRight:'2px solid #ddd',fontSize:13,fontWeight:800,color:'#1a1a2e',textAlign:'right',verticalAlign:'top',whiteSpace:'nowrap'} }, fmtTime(t)),
+            active.map(s => {
+              const items=(byStudio[s]||[]).filter(c=>c.startMin===t); const sc=SC[s];
+              return e('td', { key:s, style:{padding:4,borderBottom:'1px solid #e8e8e8',borderRight:'1px solid #eee',verticalAlign:'top'} },
+                items.map(cls =>
+                  e('div', { key:cls.id, style:{background:sc.bg,borderLeft:'4px solid '+sc.border,borderRadius:4,padding:'5px 8px',marginBottom:items.length>1?3:0} },
+                    e('div', { style:{fontSize:13,fontWeight:700,color:sc.text,lineHeight:1.2} }, cls.name),
+                    e('div', { style:{fontSize:10,color:sc.text+'aa',fontWeight:600,marginTop:2} }, cls.duration+'m \u2192 '+fmtTime(cls.endMin))
+                  )
+                )
+              );
+            })
+          )
+        )
+      )
+    )
+  );
+}
+
+// ââ Main App ââ
+function App() {
+  const [day, setDay] = useState(() => { const d=new Date().getDay(); return DAYS[d===0?6:d-1]; });
+  const [view, setView] = useState('list');
+  const classes = useMemo(() => ALL.filter(c=>c.day===day).sort((a,b)=>a.startMin-b.startMin||a.name.localeCompare(b.name)), [day]);
+  const prev = () => setDay(DAYS[(DAYS.indexOf(day)-1+7)%7]);
+  const next = () => setDay(DAYS[(DAYS.indexOf(day)+1)%7]);
+
+  const nb = { background:'transparent', border:'none', color:'rgba(255,255,255,0.4)', padding:6, borderRadius:6, display:'flex', alignItems:'center' };
+  const tb = (a) => ({ display:'flex', alignItems:'center', gap:5, padding:'6px 14px', borderRadius:6, border:'none', fontSize:12, fontWeight:700, background:a?'rgba(255,255,255,0.15)':'transparent', color:a?'#fff':'rgba(255,255,255,0.4)', transition:'all 0.15s' });
+
+  return e('div', { style:{minHeight:'100vh',background:'#f0f1f4'} },
+    // Toolbar
+    e('div', { className:'no-print', style:{background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12} },
+      e('div', { style:{display:'flex',alignItems:'center',gap:4} },
+        e('button', { onClick:prev, style:nb }, '\u276E'),
+        DAYS.map(d => {
+          const a=d===day, has=ALL.some(c=>c.day===d);
+          return e('button', { key:d, onClick:()=>setDay(d), style:{padding:'6px 12px',borderRadius:8,border:'none',fontSize:12,fontWeight:a?800:600,letterSpacing:'0.5px',background:a?'#fff':'transparent',color:a?'#1a1a2e':has?'rgba(255,255,255,0.6)':'rgba(255,255,255,0.2)',transition:'all 0.15s'} }, d.slice(0,3));
+        }),
+        e('button', { onClick:next, style:nb }, '\u276F')
+      ),
+      e('div', { style:{display:'flex',alignItems:'center',gap:8} },
+        e('div', { style:{display:'flex',background:'rgba(255,255,255,0.08)',borderRadius:8,padding:2,border:'1px solid rgba(255,255,255,0.1)'} },
+          e('button', { onClick:()=>setView('list'), style:tb(view==='list') }, '\u2630 List'),
+          e('button', { onClick:()=>setView('grid'), style:tb(view==='grid') }, '\u25a6 Grid')
+        ),
+        e('button', { onClick:()=>window.print(), style:{display:'flex',alignItems:'center',gap:6,padding:'8px 20px',borderRadius:8,background:'#E63550',color:'#fff',border:'none',fontSize:13,fontWeight:700,letterSpacing:'0.3px'} }, '\u2399 Print Schedule')
+      )
+    ),
+    // Content
+    e('div', { className:'print-area', style:{maxWidth:1200,margin:'0 auto',padding:24} },
+      classes.length === 0
+        ? e('div', { style:{textAlign:'center',padding:80,color:'#aaa'} },
+            e('div', { style:{fontSize:48,marginBottom:12} }, '\ud83d\udccb'),
+            e('div', { style:{fontSize:18,fontWeight:700} }, 'No classes scheduled for '+day)
+          )
+        : view === 'list'
+          ? e(ListView, { classes, day })
+          : e(GridView, { classes, day })
+    )
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(e(App));
+</script>
+</body>
+</html>
