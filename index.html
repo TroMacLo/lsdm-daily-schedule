@@ -7,7 +7,8 @@
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f0f1f4; color: #333; min-height: 100vh; }
-  button { cursor: pointer; }
+  button { cursor: pointer; font-family: inherit; }
+  input, select { font-family: inherit; }
   
   @media print {
     @page { size: 11in 17in landscape; margin: 0.4in 0.5in; }
@@ -18,10 +19,45 @@
     table { page-break-inside: auto; }
     tr { page-break-inside: avoid; page-break-after: auto; }
     thead { display: table-header-group; }
+    .action-btn { display: none !important; }
   }
   @media screen {
     .print-area { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.04); border: 1px solid #e5e7eb; }
   }
+  
+  /* Modal styles */
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+  .modal { background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 480px; width: 100%; max-height: 90vh; overflow: hidden; animation: modalSlide 0.2s ease-out; }
+  @keyframes modalSlide { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+  .modal-header { padding: 20px 24px; border-bottom: 1px solid #e5e7eb; }
+  .modal-header h2 { font-size: 18px; font-weight: 700; color: #1a1a2e; margin: 0; }
+  .modal-body { padding: 24px; overflow-y: auto; max-height: 60vh; }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 14px; transition: border-color 0.15s; }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: #2680EB; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 10px; justify-content: flex-end; }
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #2680EB; color: #fff; }
+  .btn-primary:hover { background: #1a6dd6; }
+  .btn-secondary { background: #f0f1f4; color: #555; }
+  .btn-secondary:hover { background: #e5e7eb; }
+  .btn-danger { background: #E63550; color: #fff; }
+  .btn-danger:hover { background: #d12d45; }
+  .btn-success { background: #12B89A; color: #fff; }
+  .btn-success:hover { background: #0fa885; }
+  
+  /* Action buttons */
+  .action-btn { opacity: 0; transition: opacity 0.15s; }
+  tr:hover .action-btn { opacity: 1; }
+  td:hover .action-btn { opacity: 1; }
+  
+  /* CSV Upload styles */
+  .csv-dropzone { border: 2px dashed #ccc; border-radius: 8px; padding: 30px; text-align: center; transition: all 0.15s; cursor: pointer; }
+  .csv-dropzone:hover, .csv-dropzone.dragover { border-color: #2680EB; background: #f8faff; }
+  .csv-dropzone p { margin: 0; color: #666; font-size: 14px; }
+  .csv-dropzone strong { color: #2680EB; }
 </style>
 </head>
 <body>
@@ -31,9 +67,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script>
 const e = React.createElement;
-const { useState, useMemo, useEffect } = React;
+const { useState, useMemo, useEffect, useCallback, useRef } = React;
 
-const RAW = [
+const DEFAULT_RAW = [
 "SATURDAY CLASSES\n9:00 AM,,Dance With Me,BLUE,30 min\n9:15 AM,,Acro 1,BALLROOM,45 min\n9:15 AM,,Ballet 1,CORAL,45 min\n9:15 AM,,Creative Movement,YELLOW,30 min\n9:30 AM,,Ballet 2,TEAL,45 min\n9:30 AM,,Tap 2/3,BLUE,60 min\n9:45 AM,,Creative Movement,YELLOW,30 min\n10:00 AM,,Acro 2,BALLROOM,60 min\n10:00 AM,,Mighty Movers,CORAL,30 min\n10:15 AM,,Musical Theatre 2,TEAL,60 min\n10:30 AM,,Ballet 1,BLUE,45 min\n10:30 AM,,Creative Movement,CORAL,30 min\n10:45 AM,,Tap 1,YELLOW,45 min\n11:00 AM,,Acro 4,BALLROOM,60 min\n11:00 AM,,Ballet 2,CORAL,45 min\n11:15 AM,,Ballet 4,TEAL,60 min\n11:15 AM,,Jazz 1,BLUE,45 min\n11:30 AM,,Ballet 3,YELLOW,60 min\n12:00 PM,,Hip Hop 1,CORAL,45 min\n12:00 PM,,Jazz 2,BLUE,60 min",
 "SUNDAY CLASSES\n9:00 AM,,Beginner Tap Ages 7+,YELLOW,60 min\n9:00 AM,,Dance With Me,BLUE,30 min\n9:15 AM,,Acro 1,BALLROOM,45 min\n9:15 AM,,Creative Movement,TEAL,30 min\n9:30 AM,,Mighty Movers,BLUE,30 min\n9:45 AM,,Ballet 1,TEAL,45 min\n10:00 AM,,Acro 2,BALLROOM,60 min\n10:00 AM,,Mighty Movers,BLUE,30 min\n10:00 AM,,Pre-Comp Tap,YELLOW,60 min\n10:30 AM,,Ballet 1/2,TEAL,45 min\n10:30 AM,,Dance With Me,BLUE,30 min\n11:00 AM,,Acro 3,BALLROOM,60 min\n11:00 AM,,Pre-Comp Jazz,YELLOW,60 min\n11:05 AM,,Hip Hop 1,LILAC,45 min\n11:15 AM,,Ballet 2,TEAL,45 min\n12:00 PM,,Creative Movement,CORAL,30 min\n12:00 PM,,FT Acro C,BALLROOM,90 min\n12:00 PM,,FT Junior Jazz,YELLOW,75 min\n12:00 PM,,Hip Hop 2,BLUE,45 min\n12:15 PM,,Ballet 3,TEAL,60 min\n6:15 PM,,PT Senior Ballet,TEAL,90 min\n7:15 PM,,Musical Theatre 3,BALLROOM,60 min\n7:30 PM,,Sr. Lyrical/Jazz Combo,BLUE,60 min",
 "WEDNESDAY CLASSES\n9:45 AM,,Dance With Me,TEAL,45 min\n10:30 AM,,Creative Movement,TEAL,30 min\n4:15 PM,,Acro 3,BALLROOM,60 min\n4:15 PM,,Ballet 4,YELLOW,60 min\n4:15 PM,,Breaking Ages 5-8,BLUE,60 min\n4:15 PM,,PT Mini Jazz,TEAL,60 min\n5:15 PM,,Breaking Ages 9+,CORAL,60 min\n5:15 PM,,FT Jr/Inter Ballet,TEAL,90 min\n5:15 PM,,FT Mini Ballet,YELLOW,75 min\n5:15 PM,,Musical Theatre 1,BALLROOM,45 min\n5:15 PM,,PT Mini Tap,BLUE,60 min\n6:00 PM,,PT Senior Ballet,BALLROOM,75 min\n6:15 PM,,Ballet Technique,CORAL,90 min\n6:15 PM,,PT Jr/Pre-Inter Tap,BLUE,60 min\n6:30 PM,,Hip Hop 2,YELLOW,45 min\n6:45 PM,,FT Mini Jazz,TEAL,90 min\n7:15 PM,,FT Jr/Inter Cont/Lyrical,BALLROOM,60 min\n7:15 PM,,Hip Hop 4/5,BLUE,60 min\n7:15 PM,,PT Pre-Inter Ballet,YELLOW,90 min\n8:15 PM,,FT Inter Jazz,TEAL,75 min",
@@ -55,29 +91,164 @@ const SC = {
 const toMin = (s) => { if(!s) return 0; const m=s.trim().match(/(\d+):(\d+)\s*(AM|PM)/i); if(!m) return 0; let h=+m[1]; const mn=+m[2]; const p=m[3].toUpperCase(); if(h===12&&p==='AM') h=0; if(h!==12&&p==='PM') h+=12; return h*60+mn; };
 const fmtTime = (m) => { const h=Math.floor(m/60),mn=m%60,p=h>=12?'PM':'AM'; return (h%12===0?12:h%12)+':'+String(mn).padStart(2,'0')+' '+p; };
 
-const ALL = (() => {
+const parseDuration = (s) => { if(!s) return 60; const n=parseInt(s.replace(/\D/g,''),10); return isNaN(n)?60:n; };
+
+const parseRawData = (rawArray) => {
   const out = [];
-  RAW.forEach(csv => {
+  rawArray.forEach(csv => {
     const lines = csv.split('\n').map(l=>l.trim()).filter(Boolean);
     const day = DAYS.find(d=>lines[0].toUpperCase().includes(d.toUpperCase()))||'Monday';
     for(let i=1;i<lines.length;i++){
       const p=lines[i].split(','); if(p.length<5) continue;
       const time=p[0].trim(),name=p[2].trim(),studio=p[3].trim().toUpperCase();
-      const dur=parseInt(p[4].replace(/\D/g,''),10)||60;
+      const dur=parseDuration(p[4]);
       if(!time||!name) continue;
-      out.push({id:day+'-'+i,day,time,name,studio,duration:dur,startMin:toMin(time),endMin:toMin(time)+dur});
+      const id = Date.now() + '-' + Math.random().toString(36).substr(2,9);
+      out.push({id,day,time,name,studio,duration:dur,startMin:toMin(time),endMin:toMin(time)+dur});
     }
   });
   return out;
-})();
+};
+
+const ALL = parseRawData(DEFAULT_RAW);
 
 // ââ Shared styles ââ
 const thS = { padding:'8px 10px', color:'#fff', fontSize:11, fontWeight:800, letterSpacing:'1px', borderBottom:'none' };
 const tdS = { padding:'6px 10px', borderBottom:'1px solid #eee' };
 const thG = { padding:'10px 8px', color:'#fff', fontSize:11, fontWeight:800, letterSpacing:'0.5px', textAlign:'center', borderBottom:'2px solid #ddd' };
 
-// ââ List View ââ
-function ListView({ classes, day }) {
+// Modal Component
+function Modal({ title, onClose, children, footer }) {
+  const handleKeyDown = (e) => { if(e.key==='Escape') onClose(); };
+  useEffect(() => { document.addEventListener('keydown', handleKeyDown); return () => document.removeEventListener('keydown', handleKeyDown); }, []);
+  return e('div', { className: 'modal-overlay', onClick: onClose },
+    e('div', { className: 'modal', onClick: (e) => e.stopPropagation() },
+      e('div', { className: 'modal-header' }, e('h2', null, title)),
+      e('div', { className: 'modal-body' }, children),
+      e('div', { className: 'modal-footer' }, footer)
+    )
+  );
+}
+
+// Class Form Component
+function ClassForm({ initialData, onSave, onCancel, onDelete, studios }) {
+  const [form, setForm] = useState(initialData || { day: 'Monday', time: '', name: '', studio: studios[0], duration: 60 });
+  const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const handleSubmit = (e) => { e.preventDefault(); if(!form.time||!form.name) return; onSave({ ...form, startMin: toMin(form.time), endMin: toMin(form.time) + parseInt(form.duration) }); };
+  
+  return e('form', { onSubmit: handleSubmit },
+    e('div', { className: 'form-row' },
+      e('div', { className: 'form-group' },
+        e('label', null, 'Day'),
+        e('select', { value: form.day, onChange: (e) => update('day', e.target.value) },
+          DAYS.map(d => e('option', { key: d, value: d }, d))
+        )
+      ),
+      e('div', { className: 'form-group' },
+        e('label', null, 'Time'),
+        e('input', { type: 'text', placeholder: '9:00 AM', value: form.time, onChange: (e) => update('time', e.target.value), required: true })
+      )
+    ),
+    e('div', { className: 'form-group' },
+      e('label', null, 'Class Name'),
+      e('input', { type: 'text', placeholder: 'Ballet 1', value: form.name, onChange: (e) => update('name', e.target.value), required: true })
+    ),
+    e('div', { className: 'form-row' },
+      e('div', { className: 'form-group' },
+        e('label', null, 'Studio'),
+        e('select', { value: form.studio, onChange: (e) => update('studio', e.target.value) },
+          studios.map(s => e('option', { key: s, value: s }, s))
+        )
+      ),
+      e('div', { className: 'form-group' },
+        e('label', null, 'Duration (min)'),
+        e('input', { type: 'number', min: 5, max: 300, value: form.duration, onChange: (e) => update('duration', parseInt(e.target.value)||60), required: true })
+      )
+    ),
+    e('div', { className: 'modal-footer', style: { padding: 0, border: 'none', marginTop: 20 } },
+      onDelete && e('button', { type: 'button', className: 'btn btn-danger', onClick: onDelete }, 'Delete'),
+      e('button', { type: 'button', className: 'btn btn-secondary', onClick: onCancel }, 'Cancel'),
+      e('button', { type: 'submit', className: 'btn btn-primary' }, initialData ? 'Save Changes' : 'Add Class')
+    )
+  );
+}
+
+// CSV Upload Component
+function CSVUpload({ onUpload, onClose }) {
+  const [content, setContent] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef();
+  
+  const handleFile = (file) => {
+    if(!file || file.type !== 'text/csv' && !file.name.endsWith('.csv')) return;
+    const reader = new FileReader();
+    reader.onload = (e) => setContent(e.target.result);
+    reader.readAsText(file);
+  };
+  
+  const handleDrop = (e) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; handleFile(file); };
+  const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = () => setIsDragging(false);
+  
+  const parseCSV = () => {
+    const lines = content.split('\n').map(l => l.trim()).filter(Boolean);
+    const classes = [];
+    let currentDay = 'Monday';
+    
+    lines.forEach(line => {
+      const dayMatch = DAYS.find(d => line.toUpperCase().includes(d.toUpperCase() + ' CLASSES'));
+      if(dayMatch) { currentDay = dayMatch; return; }
+      const parts = line.split(',');
+      if(parts.length < 4) return;
+      const time = parts[0]?.trim();
+      const name = parts[2]?.trim();
+      const studio = parts[3]?.trim().toUpperCase();
+      const dur = parseDuration(parts[4]);
+      if(!time || !name || !studio) return;
+      classes.push({
+        id: Date.now() + '-' + Math.random().toString(36).substr(2,9),
+        day: currentDay, time, name, studio, duration: dur,
+        startMin: toMin(time), endMin: toMin(time) + dur
+      });
+    });
+    onUpload(classes);
+  };
+  
+  return e(Modal, { title: 'Upload CSV', onClose },
+    !content ? e('div', {
+      className: 'csv-dropzone' + (isDragging ? ' dragover' : ''),
+      onClick: () => fileInputRef.current?.click(),
+      onDrop: handleDrop,
+      onDragOver: handleDragOver,
+      onDragLeave: handleDragLeave
+    },
+      e('input', { type: 'file', accept: '.csv', ref: fileInputRef, style: { display: 'none' }, onChange: (e) => handleFile(e.target.files[0]) }),
+      e('p', null, e('strong', null, 'Click to upload'), ' or drag and drop'),
+      e('p', { style: { fontSize: 12, marginTop: 8 } }, 'CSV format: Time,,Class Name,Studio,Duration')
+    ) : e('div', null,
+      e('div', { className: 'form-group' },
+        e('label', null, 'CSV Content'),
+        e('textarea', {
+          value: content,
+          onChange: (e) => setContent(e.target.value),
+          style: { width: '100%', height: 200, padding: 10, border: '1.5px solid #ddd', borderRadius: 8, fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }
+        })
+      ),
+      e('p', { style: { fontSize: 12, color: '#666' } }, `Preview: ${content.split('\n').filter(l => l.includes(',')).length} data rows detected`)
+    ),
+    content ? 
+      e('div', { className: 'modal-footer' },
+        e('button', { className: 'btn btn-secondary', onClick: () => setContent('') }, 'Back'),
+        e('button', { className: 'btn btn-success', onClick: parseCSV }, 'Import Classes')
+      ) : 
+      e('div', { className: 'modal-footer' },
+        e('button', { className: 'btn btn-secondary', onClick: onClose }, 'Cancel')
+      )
+  );
+}
+
+// ── List View ──
+function ListView({ classes, day, onEdit, onDelete }) {
   const groups = useMemo(() => {
     const g=[]; let last=null;
     classes.forEach(c => { if(c.time!==last){g.push({time:c.time,items:[]});last=c.time;} g[g.length-1].items.push(c); });
@@ -85,18 +256,16 @@ function ListView({ classes, day }) {
   }, [classes]);
 
   return e('div', { className:'print-content' },
-    // Header
     e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',borderBottom:'3px solid #1a1a2e',paddingBottom:8,marginBottom:16} },
       e('div', null,
         e('div', { style:{fontSize:32,fontWeight:900,letterSpacing:'-0.5px',color:'#1a1a2e',lineHeight:1} }, day.toUpperCase()+' CLASS SCHEDULE'),
-        e('div', { style:{fontSize:13,color:'#666',marginTop:4,fontWeight:500} }, 'Leslieville School of Dance & Music \u00b7 '+classes.length+' classes')
+        e('div', { style:{fontSize:13,color:'#666',marginTop:4,fontWeight:500} }, 'Leslieville School of Dance & Music · '+classes.length+' classes')
       ),
       e('div', { style:{textAlign:'right'} },
         e('div', { style:{fontSize:11,color:'#999',fontWeight:600} }, '1461 Gerrard St E'),
         e('div', { style:{fontSize:11,color:'#999'} }, 'danceandmusic.ca')
       )
     ),
-    // Legend
     e('div', { style:{display:'flex',gap:12,marginBottom:16,flexWrap:'wrap'} },
       STUDIOS.map(s => {
         if(!classes.some(c=>c.studio===s)) return null;
@@ -106,7 +275,6 @@ function ListView({ classes, day }) {
         );
       })
     ),
-    // Table
     e('table', { style:{width:'100%',borderCollapse:'collapse',fontSize:13} },
       e('thead', null,
         e('tr', { style:{background:'#1a1a2e'} },
@@ -114,7 +282,8 @@ function ListView({ classes, day }) {
           e('th', { style:{...thS,textAlign:'left'} }, 'CLASS'),
           e('th', { style:{...thS,width:120,textAlign:'center'} }, 'STUDIO'),
           e('th', { style:{...thS,width:80,textAlign:'center'} }, 'DURATION'),
-          e('th', { style:{...thS,width:100,textAlign:'center'} }, 'ENDS')
+          e('th', { style:{...thS,width:100,textAlign:'center'} }, 'ENDS'),
+          e('th', { style:{...thS,width:80,textAlign:'center'} }, 'ACTIONS')
         )
       ),
       e('tbody', null,
@@ -128,7 +297,13 @@ function ListView({ classes, day }) {
               e('span', { style:{display:'inline-block',padding:'2px 10px',borderRadius:4,background:sc.bg,border:'1.5px solid '+sc.border,fontSize:11,fontWeight:800,color:sc.text,letterSpacing:'0.5px'} }, cls.studio)
             ),
             e('td', { style:{...tdS,textAlign:'center',fontWeight:600,color:'#555',paddingTop:isFirst?10:6} }, cls.duration+' min'),
-            e('td', { style:{...tdS,textAlign:'center',color:'#888',fontWeight:500,paddingTop:isFirst?10:6} }, fmtTime(cls.endMin))
+            e('td', { style:{...tdS,textAlign:'center',color:'#888',fontWeight:500,paddingTop:isFirst?10:6} }, fmtTime(cls.endMin)),
+            e('td', { style:{...tdS,textAlign:'center',paddingTop:isFirst?10:6} },
+              e('div', { className: 'action-btn', style: { display: 'flex', gap: 4, justifyContent: 'center' } },
+                e('button', { onClick: () => onEdit(cls), style: { background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', padding: 2 }, title: 'Edit' }, '✏️'),
+                e('button', { onClick: () => onDelete(cls), style: { background: 'none', border: 'none', fontSize: 14, cursor: 'pointer', padding: 2 }, title: 'Delete' }, '🗑️')
+              )
+            )
           );
         }))
       )
@@ -137,7 +312,7 @@ function ListView({ classes, day }) {
 }
 
 // ââ Grid View ââ
-function GridView({ classes, day }) {
+function GridView({ classes, day, onEdit, onDelete }) {
   const active = useMemo(() => STUDIOS.filter(s=>classes.some(c=>c.studio===s)), [classes]);
   const byStudio = useMemo(() => { const m={}; active.forEach(s=>m[s]=classes.filter(c=>c.studio===s)); return m; }, [classes,active]);
   const times = useMemo(() => [...new Set(classes.map(c=>c.startMin))].sort((a,b)=>a-b), [classes]);
@@ -145,8 +320,8 @@ function GridView({ classes, day }) {
   return e('div', { className:'print-content' },
     e('div', { style:{display:'flex',justifyContent:'space-between',alignItems:'flex-end',borderBottom:'3px solid #1a1a2e',paddingBottom:8,marginBottom:12} },
       e('div', null,
-        e('div', { style:{fontSize:30,fontWeight:900,letterSpacing:'-0.5px',color:'#1a1a2e',lineHeight:1} }, day.toUpperCase()+' \u2014 BY STUDIO'),
-        e('div', { style:{fontSize:12,color:'#666',marginTop:4,fontWeight:500} }, 'Leslieville School of Dance & Music \u00b7 '+classes.length+' classes \u00b7 '+active.length+' studios')
+        e('div', { style:{fontSize:30,fontWeight:900,letterSpacing:'-0.5px',color:'#1a1a2e',lineHeight:1} }, day.toUpperCase()+' — BY STUDIO'),
+        e('div', { style:{fontSize:12,color:'#666',marginTop:4,fontWeight:500} }, 'Leslieville School of Dance & Music · '+classes.length+' classes · '+active.length+' studios')
       ),
       e('div', { style:{textAlign:'right'} },
         e('div', { style:{fontSize:11,color:'#999',fontWeight:600} }, '1461 Gerrard St E'),
@@ -168,9 +343,13 @@ function GridView({ classes, day }) {
               const items=(byStudio[s]||[]).filter(c=>c.startMin===t); const sc=SC[s];
               return e('td', { key:s, style:{padding:4,borderBottom:'1px solid #e8e8e8',borderRight:'1px solid #eee',verticalAlign:'top'} },
                 items.map(cls =>
-                  e('div', { key:cls.id, style:{background:sc.bg,borderLeft:'4px solid '+sc.border,borderRadius:4,padding:'5px 8px',marginBottom:items.length>1?3:0} },
-                    e('div', { style:{fontSize:13,fontWeight:700,color:sc.text,lineHeight:1.2} }, cls.name),
-                    e('div', { style:{fontSize:10,color:sc.text+'aa',fontWeight:600,marginTop:2} }, cls.duration+'m \u2192 '+fmtTime(cls.endMin))
+                  e('div', { key:cls.id, style:{background:sc.bg,borderLeft:'4px solid '+sc.border,borderRadius:4,padding:'5px 8px',marginBottom:items.length>1?3:0,position:'relative'} },
+                    e('div', { className: 'action-btn', style: { position: 'absolute', top: 2, right: 2, display: 'flex', gap: 2 } },
+                      e('button', { onClick: (e) => { e.stopPropagation(); onEdit(cls); }, style: { background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: 3, fontSize: 11, cursor: 'pointer', padding: '1px 3px', lineHeight: 1 }, title: 'Edit' }, '✏️'),
+                      e('button', { onClick: (e) => { e.stopPropagation(); onDelete(cls); }, style: { background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: 3, fontSize: 11, cursor: 'pointer', padding: '1px 3px', lineHeight: 1 }, title: 'Delete' }, '🗑️')
+                    ),
+                    e('div', { style:{fontSize:13,fontWeight:700,color:sc.text,lineHeight:1.2,paddingRight:20} }, cls.name),
+                    e('div', { style:{fontSize:10,color:sc.text+'aa',fontWeight:600,marginTop:2} }, cls.duration+'m → '+fmtTime(cls.endMin))
                   )
                 )
               );
@@ -182,14 +361,82 @@ function GridView({ classes, day }) {
   );
 }
 
-// ââ Main App ââ
+// ââ// ââ Main App ââ
 function App() {
+  const [data, setData] = useState(() => {
+    const saved = localStorage.getItem('lsdm-schedule');
+    if(saved) return JSON.parse(saved);
+    return ALL;
+  });
+  
   const [day, setDay] = useState(() => { const d=new Date().getDay(); return DAYS[d===0?6:d-1]; });
   const [view, setView] = useState('list');
-  const classes = useMemo(() => ALL.filter(c=>c.day===day).sort((a,b)=>a.startMin-b.startMin||a.name.localeCompare(b.name)), [day]);
+  const [modal, setModal] = useState(null);
+  const [editingClass, setEditingClass] = useState(null);
+  
+  useEffect(() => { localStorage.setItem('lsdm-schedule', JSON.stringify(data)); }, [data]);
+  
+  const classes = useMemo(() => data.filter(c=>c.day===day).sort((a,b)=>a.startMin-b.startMin||a.name.localeCompare(b.name)), [data, day]);
   const prev = () => setDay(DAYS[(DAYS.indexOf(day)-1+7)%7]);
   const next = () => setDay(DAYS[(DAYS.indexOf(day)+1)%7]);
-
+  
+  const addClass = (cls) => {
+    const newClass = { ...cls, id: Date.now() + '-' + Math.random().toString(36).substr(2,9) };
+    setData(d => [...d, newClass]);
+    setModal(null);
+  };
+  
+  const updateClass = (cls) => {
+    setData(d => d.map(c => c.id === editingClass.id ? { ...cls, id: c.id } : c));
+    setModal(null);
+    setEditingClass(null);
+  };
+  
+  const deleteClass = (cls) => {
+    if(confirm('Delete "' + cls.name + '" at ' + cls.time + '?')) {
+      setData(d => d.filter(c => c.id !== cls.id));
+      setModal(null);
+      setEditingClass(null);
+    }
+  };
+  
+  const handleEdit = (cls) => { setEditingClass(cls); setModal('edit'); };
+  const handleDelete = (cls) => deleteClass(cls);
+  
+  const handleCSVUpload = (newClasses) => {
+    if(confirm('Import ' + newClasses.length + ' classes? This will replace all existing data.')) {
+      setData(newClasses);
+      setModal(null);
+    }
+  };
+  
+  const exportCSV = () => {
+    const grouped = {};
+    data.forEach(c => { if(!grouped[c.day]) grouped[c.day] = []; grouped[c.day].push(c); });
+    let csv = '';
+    DAYS.forEach(d => {
+      if(!grouped[d] || grouped[d].length === 0) return;
+      csv += d.toUpperCase() + ' CLASSES\n';
+      grouped[d].sort((a,b)=>a.startMin-b.startMin).forEach(c => {
+        csv += c.time + ',,"' + c.name + '",' + c.studio + ',' + c.duration + ' min\n';
+      });
+      csv += '\n';
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'lsdm-schedule.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  
+  const resetData = () => {
+    if(confirm('Reset to default schedule? All custom changes will be lost.')) {
+      setData(ALL);
+    }
+  };
+  
   const nb = { background:'transparent', border:'none', color:'rgba(255,255,255,0.4)', padding:6, borderRadius:6, display:'flex', alignItems:'center' };
   const tb = (a) => ({ display:'flex', alignItems:'center', gap:5, padding:'6px 14px', borderRadius:6, border:'none', fontSize:12, fontWeight:700, background:a?'rgba(255,255,255,0.15)':'transparent', color:a?'#fff':'rgba(255,255,255,0.4)', transition:'all 0.15s' });
 
@@ -197,32 +444,48 @@ function App() {
     // Toolbar
     e('div', { className:'no-print', style:{background:'linear-gradient(135deg,#1a1a2e 0%,#16213e 100%)',padding:'12px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12} },
       e('div', { style:{display:'flex',alignItems:'center',gap:4} },
-        e('button', { onClick:prev, style:nb }, '\u276E'),
+        e('button', { onClick:prev, style:nb }, '❮'),
         DAYS.map(d => {
-          const a=d===day, has=ALL.some(c=>c.day===d);
+          const a=d===day, has=data.some(c=>c.day===d);
           return e('button', { key:d, onClick:()=>setDay(d), style:{padding:'6px 12px',borderRadius:8,border:'none',fontSize:12,fontWeight:a?800:600,letterSpacing:'0.5px',background:a?'#fff':'transparent',color:a?'#1a1a2e':has?'rgba(255,255,255,0.6)':'rgba(255,255,255,0.2)',transition:'all 0.15s'} }, d.slice(0,3));
         }),
-        e('button', { onClick:next, style:nb }, '\u276F')
+        e('button', { onClick:next, style:nb }, '❯')
       ),
       e('div', { style:{display:'flex',alignItems:'center',gap:8} },
         e('div', { style:{display:'flex',background:'rgba(255,255,255,0.08)',borderRadius:8,padding:2,border:'1px solid rgba(255,255,255,0.1)'} },
-          e('button', { onClick:()=>setView('list'), style:tb(view==='list') }, '\u2630 List'),
-          e('button', { onClick:()=>setView('grid'), style:tb(view==='grid') }, '\u25a6 Grid')
+          e('button', { onClick:()=>setView('list'), style:tb(view==='list') }, '☰ List'),
+          e('button', { onClick:()=>setView('grid'), style:tb(view==='grid') }, '⊞ Grid')
         ),
-        e('button', { onClick:()=>window.print(), style:{display:'flex',alignItems:'center',gap:6,padding:'8px 20px',borderRadius:8,background:'#E63550',color:'#fff',border:'none',fontSize:13,fontWeight:700,letterSpacing:'0.3px'} }, '\u2399 Print Schedule')
+        e('button', { onClick:()=>setModal('add'), style:{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:'#12B89A',color:'#fff',border:'none',fontSize:13,fontWeight:700} }, '+ Add'),
+        e('button', { onClick:()=>setModal('csv'), style:{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:'#2680EB',color:'#fff',border:'none',fontSize:13,fontWeight:700} }, '↑ CSV'),
+        e('button', { onClick:exportCSV, style:{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,background:'rgba(255,255,255,0.1)',color:'#fff',border:'1px solid rgba(255,255,255,0.2)',fontSize:13,fontWeight:700} }, '↓ Export'),
+        e('button', { onClick:()=>window.print(), style:{display:'flex',alignItems:'center',gap:6,padding:'8px 20px',borderRadius:8,background:'#E63550',color:'#fff',border:'none',fontSize:13,fontWeight:700} }, '🖨 Print')
       )
     ),
     // Content
     e('div', { className:'print-area', style:{maxWidth:1200,margin:'0 auto',padding:24} },
       classes.length === 0
         ? e('div', { style:{textAlign:'center',padding:80,color:'#aaa'} },
-            e('div', { style:{fontSize:48,marginBottom:12} }, '\ud83d\udccb'),
-            e('div', { style:{fontSize:18,fontWeight:700} }, 'No classes scheduled for '+day)
+            e('div', { style:{fontSize:48,marginBottom:12} }, '📋'),
+            e('div', { style:{fontSize:18,fontWeight:700} }, 'No classes scheduled for ' + day),
+            e('button', { onClick:()=>setModal('add'), style:{marginTop:20,padding:'10px 24px',borderRadius:8,background:'#12B89A',color:'#fff',border:'none',fontSize:14,fontWeight:700,cursor:'pointer'} }, '+ Add Your First Class')
           )
         : view === 'list'
-          ? e(ListView, { classes, day })
-          : e(GridView, { classes, day })
-    )
+          ? e(ListView, { classes, day, onEdit: handleEdit, onDelete: handleDelete })
+          : e(GridView, { classes, day, onEdit: handleEdit, onDelete: handleDelete })
+    ),
+    // Reset link
+    data.length !== ALL.length && e('div', { className: 'no-print', style: { textAlign: 'center', padding: '20px' } },
+      e('button', { onClick: resetData, style: { background: 'none', border: 'none', color: '#E63550', cursor: 'pointer', textDecoration: 'underline', fontSize: 12 } }, 'Reset to Default')
+    ),
+    // Modals
+    modal === 'add' && e(Modal, { title: 'Add New Class', onClose: () => setModal(null) },
+      e(ClassForm, { studios: STUDIOS, onSave: addClass, onCancel: () => setModal(null) })
+    ),
+    modal === 'edit' && editingClass && e(Modal, { title: 'Edit Class', onClose: () => { setModal(null); setEditingClass(null); } },
+      e(ClassForm, { initialData: editingClass, studios: STUDIOS, onSave: updateClass, onCancel: () => { setModal(null); setEditingClass(null); }, onDelete: () => deleteClass(editingClass) })
+    ),
+    modal === 'csv' && e(CSVUpload, { onUpload: handleCSVUpload, onClose: () => setModal(null) })
   );
 }
 
