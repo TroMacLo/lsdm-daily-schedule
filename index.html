@@ -88,23 +88,109 @@ const SC = {
   LILAC:    { bg:'#E8DAF8', border:'#8B5CF6', head:'#7340DB', text:'#3B1A6E' },
 };
 
-const toMin = (s) => { if(!s) return 0; const m=s.trim().match(/(\d+):(\d+)\s*(AM|PM)/i); if(!m) return 0; let h=+m[1]; const mn=+m[2]; const p=m[3].toUpperCase(); if(h===12&&p==='AM') h=0; if(h!==12&&p==='PM') h+=12; return h*60+mn; };
+// Time normalization and conversion utilities
+const normalizeTime = (s) => {
+  if (!s || typeof s !== 'string') return '';
+  s = s.trim().toUpperCase();
+  
+  // Handle military/24hr format like "1400" or "14:00"
+  if (/^\d{1,4}$/.test(s)) {
+    let hour, min = 0;
+    if (s.length <= 2) {
+      hour = parseInt(s, 10);
+    } else if (s.length === 3) {
+      hour = parseInt(s.slice(0, 1), 10);
+      min = parseInt(s.slice(1), 10);
+    } else {
+      hour = parseInt(s.slice(0, 2), 10);
+      min = parseInt(s.slice(2), 10);
+    }
+    const p = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    if (hour === 0) hour = 12;
+    return `${hour}:${String(min).padStart(2, '0')} ${p}`;
+  }
+  
+  // Handle "9am", "9pm", "9AM", "9:00AM" (no space)
+  const noSpaceMatch = s.match(/^(\d{1,2}):?(\d{2})?\s*(AM|PM)$/i);
+  if (noSpaceMatch) {
+    let hour = parseInt(noSpaceMatch[1], 10);
+    let min = noSpaceMatch[2] ? parseInt(noSpaceMatch[2], 10) : 0;
+    const p = noSpaceMatch[3].toUpperCase();
+    return `${hour}:${String(min).padStart(2, '0')} ${p}`;
+  }
+  
+  // Handle "9:00" without AM/PM - assume AM if hour < 12
+  const timeOnlyMatch = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (timeOnlyMatch) {
+    let hour = parseInt(timeOnlyMatch[1], 10);
+    let min = parseInt(timeOnlyMatch[2], 10);
+    const p = hour >= 12 ? 'PM' : 'AM';
+    if (hour > 12) hour -= 12;
+    return `${hour}:${String(min).padStart(2, '0')} ${p}`;
+  }
+  
+  // Standard format "9:00 AM" - return as-is
+  return s;
+};
+
+const toMin = (s) => { 
+  if(!s) return 0;
+  const normalized = normalizeTime(s);
+  const m = normalized.match(/(\d+):(\d+)\s*(AM|PM)/i); 
+  if(!m) return 0; 
+  let h = +m[1]; 
+  const mn = +m[2]; 
+  const p = m[3].toUpperCase(); 
+  if(h === 12 && p === 'AM') h = 0; 
+  if(h !== 12 && p === 'PM') h += 12; 
+  return h * 60 + mn; 
+};
+
 const fmtTime = (m) => { const h=Math.floor(m/60),mn=m%60,p=h>=12?'PM':'AM'; return (h%12===0?12:h%12)+':'+String(mn).padStart(2,'0')+' '+p; };
 
-const parseDuration = (s) => { if(!s) return 60; const n=parseInt(s.replace(/\D/g,''),10); return isNaN(n)?60:n; };
+// Day normalization
+const normalizeDay = (s) => {
+  if (!s) return null;
+  s = s.toString().trim().toUpperCase();
+  // Remove "CLASSES" suffix and extra whitespace
+  s = s.replace(/\s*CLASSES?\s*$/, '').trim();
+  
+  const dayMap = {
+    'MONDAY': 'Monday', 'MON': 'Monday', 'M': 'Monday',
+    'TUESDAY': 'Tuesday', 'TUES': 'Tuesday', 'TUE': 'Tuesday', 'TU': 'Tuesday',
+    'WEDNESDAY': 'Wednesday', 'WED': 'Wednesday', 'W': 'Wednesday',
+    'THURSDAY': 'Thursday', 'THURS': 'Thursday', 'THUR': 'Thursday', 'THU': 'Thursday', 'TH': 'Thursday',
+    'FRIDAY': 'Friday', 'FRI': 'Friday', 'F': 'Friday',
+    'SATURDAY': 'Saturday', 'SAT': 'Saturday', 'SA': 'Saturday',
+    'SUNDAY': 'Sunday', 'SUN': 'Sunday', 'SU': 'Sunday'
+  };
+  
+  return dayMap[s] || null;
+};
+
+const parseDuration = (s) => { if(!s) return 60; const n=parseInt(s.toString().replace(/\D/g,''),10); return isNaN(n)?60:n; };
 
 const parseRawData = (rawArray) => {
   const out = [];
   rawArray.forEach(csv => {
     const lines = csv.split('\n').map(l=>l.trim()).filter(Boolean);
-    const day = DAYS.find(d=>lines[0].toUpperCase().includes(d.toUpperCase()))||'Monday';
-    for(let i=1;i<lines.length;i++){
-      const p=lines[i].split(','); if(p.length<5) continue;
+    let currentDay = DAYS.find(d=>lines[0].toUpperCase().includes(d.toUpperCase()))||'Monday';
+    for(let i=0;i<lines.length;i++){
+      const line = lines[i];
+      // Check for day header
+      const dayMatch = normalizeDay(line);
+      if(dayMatch) {
+        currentDay = dayMatch;
+        continue;
+      }
+      const p=line.split(','); if(p.length<5) continue;
       const time=p[0].trim(),name=p[2].trim(),studio=p[3].trim().toUpperCase();
       const dur=parseDuration(p[4]);
       if(!time||!name) continue;
+      const normalizedTime = normalizeTime(time);
       const id = Date.now() + '-' + Math.random().toString(36).substr(2,9);
-      out.push({id,day,time,name,studio,duration:dur,startMin:toMin(time),endMin:toMin(time)+dur});
+      out.push({id,day:currentDay,time:normalizedTime,name,studio,duration:dur,startMin:toMin(time),endMin:toMin(time)+dur});
     }
   });
   return out;
@@ -267,6 +353,15 @@ function CSVUpload({ onUpload, onClose }) {
     setMapping(m => ({ ...m, [colIndex]: field }));
   };
   
+  // Get normalized day from day column or day headers
+  const getDayFromRow = (row, dayColIndex, currentDay) => {
+    if (dayColIndex !== undefined && row[dayColIndex]) {
+      const normalized = normalizeDay(row[dayColIndex]);
+      if (normalized) return normalized;
+    }
+    return currentDay;
+  };
+  
   const generatePreview = () => {
     const mappedRows = [];
     const dayCol = Object.entries(mapping).find(([_, v]) => v === 'day')?.[0];
@@ -278,22 +373,28 @@ function CSVUpload({ onUpload, onClose }) {
     let currentDay = 'Monday';
     
     rows.slice(0, 5).forEach(row => {
-      // Check if row contains day header like "MONDAY CLASSES"
-      const rowText = row.join(' ');
-      const dayMatch = DAYS.find(d => rowText.toUpperCase().includes(d.toUpperCase()));
+      // Check if entire row is a day header
+      const rowText = row.join(' ').trim();
+      const dayMatch = normalizeDay(rowText);
       if (dayMatch) {
         currentDay = dayMatch;
         return;
       }
       
-      const time = timeCol !== undefined ? row[timeCol] : '';
+      // Check day column
+      const day = getDayFromRow(row, dayCol, currentDay);
+      if (day !== currentDay && normalizeDay(row[dayCol])) {
+        currentDay = day;
+      }
+      
+      const timeRaw = timeCol !== undefined ? row[timeCol] : '';
+      const time = normalizeTime(timeRaw);
       const name = nameCol !== undefined ? row[nameCol] : '';
       const studio = studioCol !== undefined ? row[studioCol] : '';
       const duration = durationCol !== undefined ? parseDuration(row[durationCol]) : 60;
-      const day = dayCol !== undefined ? row[dayCol] : currentDay;
       
       if (time && name) {
-        mappedRows.push({ day, time, name, studio, duration });
+        mappedRows.push({ day: currentDay, time, name, studio, duration });
       }
     });
     
@@ -326,25 +427,33 @@ function CSVUpload({ onUpload, onClose }) {
     let currentDay = 'Monday';
     
     rows.forEach(row => {
-      const rowText = row.join(' ');
-      const dayMatch = DAYS.find(d => rowText.toUpperCase().includes(d.toUpperCase()));
+      // Check if entire row is a day header
+      const rowText = row.join(' ').trim();
+      const dayMatch = normalizeDay(rowText);
       if (dayMatch) {
         currentDay = dayMatch;
         return;
       }
       
-      const time = row[timeCol]?.trim();
+      const timeRaw = row[timeCol]?.trim();
       const name = row[nameCol]?.trim();
       const studio = row[studioCol]?.trim().toUpperCase();
       const dur = parseDuration(row[durationCol]);
-      const day = dayCol !== undefined ? row[dayCol]?.trim() : currentDay;
       
-      if(!time || !name || !studio) return;
+      // Check day column
+      const day = getDayFromRow(row, dayCol, currentDay);
+      if (normalizeDay(row[dayCol])) {
+        currentDay = day;
+      }
+      
+      if(!timeRaw || !name || !studio) return;
+      
+      const time = normalizeTime(timeRaw);
       
       classes.push({
         id: Date.now() + '-' + Math.random().toString(36).substr(2,9),
         day, time, name, studio, duration: dur,
-        startMin: toMin(time), endMin: toMin(time) + dur
+        startMin: toMin(timeRaw), endMin: toMin(timeRaw) + dur
       });
     });
     
