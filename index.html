@@ -67,7 +67,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script>
 const e = React.createElement;
-const { useState, useMemo, useEffect, useCallback, useRef } = React;
+const { useState, useMemo, useEffect, useRef } = React;
 
 const DEFAULT_RAW = [
 "SATURDAY CLASSES\n9:00 AM,,Dance With Me,BLUE,30 min\n9:15 AM,,Acro 1,BALLROOM,45 min\n9:15 AM,,Ballet 1,CORAL,45 min\n9:15 AM,,Creative Movement,YELLOW,30 min\n9:30 AM,,Ballet 2,TEAL,45 min\n9:30 AM,,Tap 2/3,BLUE,60 min\n9:45 AM,,Creative Movement,YELLOW,30 min\n10:00 AM,,Acro 2,BALLROOM,60 min\n10:00 AM,,Mighty Movers,CORAL,30 min\n10:15 AM,,Musical Theatre 2,TEAL,60 min\n10:30 AM,,Ballet 1,BLUE,45 min\n10:30 AM,,Creative Movement,CORAL,30 min\n10:45 AM,,Tap 1,YELLOW,45 min\n11:00 AM,,Acro 4,BALLROOM,60 min\n11:00 AM,,Ballet 2,CORAL,45 min\n11:15 AM,,Ballet 4,TEAL,60 min\n11:15 AM,,Jazz 1,BLUE,45 min\n11:30 AM,,Ballet 3,YELLOW,60 min\n12:00 PM,,Hip Hop 1,CORAL,45 min\n12:00 PM,,Jazz 2,BLUE,60 min",
@@ -204,14 +204,13 @@ const tdS = { padding:'6px 10px', borderBottom:'1px solid #eee' };
 const thG = { padding:'10px 8px', color:'#fff', fontSize:11, fontWeight:800, letterSpacing:'0.5px', textAlign:'center', borderBottom:'2px solid #ddd' };
 
 // Modal Component
-function Modal({ title, onClose, children, footer }) {
-  const handleKeyDown = (e) => { if(e.key==='Escape') onClose(); };
+function Modal({ title, onClose, children }) {
+  const handleKeyDown = (ev) => { if(ev.key==='Escape') onClose(); };
   useEffect(() => { document.addEventListener('keydown', handleKeyDown); return () => document.removeEventListener('keydown', handleKeyDown); }, []);
   return e('div', { className: 'modal-overlay', onClick: onClose },
-    e('div', { className: 'modal', onClick: (e) => e.stopPropagation() },
+    e('div', { className: 'modal', onClick: (ev) => ev.stopPropagation() },
       e('div', { className: 'modal-header' }, e('h2', null, title)),
-      e('div', { className: 'modal-body' }, children),
-      e('div', { className: 'modal-footer' }, footer)
+      e('div', { className: 'modal-body' }, children)
     )
   );
 }
@@ -220,35 +219,42 @@ function Modal({ title, onClose, children, footer }) {
 function ClassForm({ initialData, onSave, onCancel, onDelete, studios }) {
   const [form, setForm] = useState(initialData || { day: 'Monday', time: '', name: '', studio: studios[0], duration: 60 });
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const handleSubmit = (e) => { e.preventDefault(); if(!form.time||!form.name) return; onSave({ ...form, startMin: toMin(form.time), endMin: toMin(form.time) + parseInt(form.duration) }); };
+  const handleSubmit = (ev) => {
+    ev.preventDefault();
+    if(!form.time || !form.name) return;
+    const time = normalizeTime(form.time);
+    const startMin = toMin(time);
+    const duration = parseInt(form.duration) || 60;
+    onSave({ ...form, time, duration, startMin, endMin: startMin + duration });
+  };
   
   return e('form', { onSubmit: handleSubmit },
     e('div', { className: 'form-row' },
       e('div', { className: 'form-group' },
         e('label', null, 'Day'),
-        e('select', { value: form.day, onChange: (e) => update('day', e.target.value) },
+        e('select', { value: form.day, onChange: (ev) => update('day', ev.target.value) },
           DAYS.map(d => e('option', { key: d, value: d }, d))
         )
       ),
       e('div', { className: 'form-group' },
         e('label', null, 'Time'),
-        e('input', { type: 'text', placeholder: '9:00 AM', value: form.time, onChange: (e) => update('time', e.target.value), required: true })
+        e('input', { type: 'text', placeholder: '9:00 AM', value: form.time, onChange: (ev) => update('time', ev.target.value), required: true })
       )
     ),
     e('div', { className: 'form-group' },
       e('label', null, 'Class Name'),
-      e('input', { type: 'text', placeholder: 'Ballet 1', value: form.name, onChange: (e) => update('name', e.target.value), required: true })
+      e('input', { type: 'text', placeholder: 'Ballet 1', value: form.name, onChange: (ev) => update('name', ev.target.value), required: true })
     ),
     e('div', { className: 'form-row' },
       e('div', { className: 'form-group' },
         e('label', null, 'Studio'),
-        e('select', { value: form.studio, onChange: (e) => update('studio', e.target.value) },
+        e('select', { value: form.studio, onChange: (ev) => update('studio', ev.target.value) },
           studios.map(s => e('option', { key: s, value: s }, s))
         )
       ),
       e('div', { className: 'form-group' },
         e('label', null, 'Duration (min)'),
-        e('input', { type: 'number', min: 5, max: 300, value: form.duration, onChange: (e) => update('duration', parseInt(e.target.value)||60), required: true })
+        e('input', { type: 'number', min: 5, max: 300, value: form.duration, onChange: (ev) => update('duration', parseInt(ev.target.value)||60), required: true })
       )
     ),
     e('div', { className: 'modal-footer', style: { padding: 0, border: 'none', marginTop: 20 } },
@@ -327,7 +333,7 @@ function CSVUpload({ onUpload, onClose }) {
     
     const firstRow = parseCSVLine(lines[0]);
     const isHeader = assumeHeader && firstRow.some(cell => 
-      /^(day|time|class|name|studio|room|duration|length)/i.test(cell.trim())
+      /(day|date|time|hour|class|name|title|studio|room|location|dur|length|minutes)/i.test(cell.trim())
     );
     
     setHasHeader(isHeader);
@@ -353,44 +359,35 @@ function CSVUpload({ onUpload, onClose }) {
     setMapping(m => ({ ...m, [colIndex]: field }));
   };
   
-  // Get normalized day from day column or day headers
-  const getDayFromRow = (row, dayColIndex, currentDay) => {
-    if (dayColIndex !== undefined && row[dayColIndex]) {
-      const normalized = normalizeDay(row[dayColIndex]);
-      if (normalized) return normalized;
-    }
-    return currentDay;
+  const getMappedCol = (field) => {
+    const entry = Object.entries(mapping).find(([_, v]) => v === field);
+    return entry ? parseInt(entry[0], 10) : undefined;
   };
   
   const generatePreview = () => {
-    const mappedRows = [];
-    const dayCol = Object.entries(mapping).find(([_, v]) => v === 'day')?.[0];
-    const timeCol = Object.entries(mapping).find(([_, v]) => v === 'time')?.[0];
-    const nameCol = Object.entries(mapping).find(([_, v]) => v === 'name')?.[0];
-    const studioCol = Object.entries(mapping).find(([_, v]) => v === 'studio')?.[0];
-    const durationCol = Object.entries(mapping).find(([_, v]) => v === 'duration')?.[0];
+    const dayCol = getMappedCol('day');
+    const timeCol = getMappedCol('time');
+    const nameCol = getMappedCol('name');
+    const studioCol = getMappedCol('studio');
+    const durationCol = getMappedCol('duration');
     
+    const mappedRows = [];
     let currentDay = 'Monday';
     
     rows.slice(0, 5).forEach(row => {
-      // Check if entire row is a day header
       const rowText = row.join(' ').trim();
-      const dayMatch = normalizeDay(rowText);
-      if (dayMatch) {
-        currentDay = dayMatch;
-        return;
+      const dayHeader = normalizeDay(rowText);
+      if (dayHeader) { currentDay = dayHeader; return; }
+      
+      if (dayCol !== undefined && row[dayCol]) {
+        const nd = normalizeDay(row[dayCol]);
+        if (nd) currentDay = nd;
       }
       
-      // Check day column
-      const day = getDayFromRow(row, dayCol, currentDay);
-      if (day !== currentDay && normalizeDay(row[dayCol])) {
-        currentDay = day;
-      }
-      
-      const timeRaw = timeCol !== undefined ? row[timeCol] : '';
+      const timeRaw = timeCol !== undefined ? (row[timeCol] || '') : '';
       const time = normalizeTime(timeRaw);
-      const name = nameCol !== undefined ? row[nameCol] : '';
-      const studio = studioCol !== undefined ? row[studioCol] : '';
+      const name = nameCol !== undefined ? (row[nameCol] || '') : '';
+      const studio = studioCol !== undefined ? (row[studioCol] || '') : '';
       const duration = durationCol !== undefined ? parseDuration(row[durationCol]) : 60;
       
       if (time && name) {
@@ -412,11 +409,11 @@ function CSVUpload({ onUpload, onClose }) {
   const handleDragLeave = () => setIsDragging(false);
   
   const parseCSV = () => {
-    const dayCol = Object.entries(mapping).find(([_, v]) => v === 'day')?.[0];
-    const timeCol = Object.entries(mapping).find(([_, v]) => v === 'time')?.[0];
-    const nameCol = Object.entries(mapping).find(([_, v]) => v === 'name')?.[0];
-    const studioCol = Object.entries(mapping).find(([_, v]) => v === 'studio')?.[0];
-    const durationCol = Object.entries(mapping).find(([_, v]) => v === 'duration')?.[0];
+    const dayCol = getMappedCol('day');
+    const timeCol = getMappedCol('time');
+    const nameCol = getMappedCol('name');
+    const studioCol = getMappedCol('studio');
+    const durationCol = getMappedCol('duration');
     
     if (timeCol === undefined || nameCol === undefined || studioCol === undefined || durationCol === undefined) {
       alert('Please map Time, Class Name, Studio, and Duration columns');
@@ -427,33 +424,29 @@ function CSVUpload({ onUpload, onClose }) {
     let currentDay = 'Monday';
     
     rows.forEach(row => {
-      // Check if entire row is a day header
       const rowText = row.join(' ').trim();
-      const dayMatch = normalizeDay(rowText);
-      if (dayMatch) {
-        currentDay = dayMatch;
-        return;
+      const dayHeader = normalizeDay(rowText);
+      if (dayHeader) { currentDay = dayHeader; return; }
+      
+      if (dayCol !== undefined && row[dayCol]) {
+        const nd = normalizeDay(row[dayCol]);
+        if (nd) currentDay = nd;
       }
       
-      const timeRaw = row[timeCol]?.trim();
-      const name = row[nameCol]?.trim();
-      const studio = row[studioCol]?.trim().toUpperCase();
+      const timeRaw = (row[timeCol] || '').trim();
+      const name = (row[nameCol] || '').trim();
+      const studio = (row[studioCol] || '').trim().toUpperCase();
       const dur = parseDuration(row[durationCol]);
-      
-      // Check day column
-      const day = getDayFromRow(row, dayCol, currentDay);
-      if (normalizeDay(row[dayCol])) {
-        currentDay = day;
-      }
       
       if(!timeRaw || !name || !studio) return;
       
       const time = normalizeTime(timeRaw);
+      const startMin = toMin(time);
       
       classes.push({
         id: Date.now() + '-' + Math.random().toString(36).substr(2,9),
-        day, time, name, studio, duration: dur,
-        startMin: toMin(timeRaw), endMin: toMin(timeRaw) + dur
+        day: currentDay, time, name, studio, duration: dur,
+        startMin, endMin: startMin + dur
       });
     });
     
@@ -474,9 +467,6 @@ function CSVUpload({ onUpload, onClose }) {
            mapped.includes('studio') && mapped.includes('duration');
   };
   
-  // View modes
-  const [showMapping, setShowMapping] = useState(false);
-  
   return e(Modal, { title: 'Upload CSV with Column Mapping', onClose },
     !content ? e('div', {
       className: 'csv-dropzone' + (isDragging ? ' dragover' : ''),
@@ -485,16 +475,16 @@ function CSVUpload({ onUpload, onClose }) {
       onDragOver: handleDragOver,
       onDragLeave: handleDragLeave
     },
-      e('input', { type: 'file', accept: '.csv', ref: fileInputRef, style: { display: 'none' }, onChange: (e) => handleFile(e.target.files[0]) }),
+      e('input', { type: 'file', accept: '.csv', ref: fileInputRef, style: { display: 'none' }, onChange: (ev) => handleFile(ev.target.files[0]) }),
       e('p', null, e('strong', null, 'Click to upload'), ' or drag and drop CSV file'),
       e('p', { style: { fontSize: 12, marginTop: 8, color: '#888' } }, 'Supports any CSV format with column mapping')
-    ) : !showMapping ? e('div', null,
+    ) : e('div', null,
       e('div', { style: { marginBottom: 16 } },
         e('p', { style: { fontSize: 14, marginBottom: 12 } }, 'Detected ' + rows.length + ' data rows. Please map your CSV columns to the required fields:'),
         e('label', { style: { display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' } },
-          e('input', { type: 'checkbox', checked: hasHeader, onChange: (e) => {
-            setHasHeader(e.target.checked);
-            processCSVContent(content, e.target.checked);
+          e('input', { type: 'checkbox', checked: hasHeader, onChange: (ev) => {
+            setHasHeader(ev.target.checked);
+            processCSVContent(content, ev.target.checked);
           } }),
           'First row is header'
         )
@@ -514,7 +504,7 @@ function CSVUpload({ onUpload, onClose }) {
                 e('td', { style: { padding: '6px 8px', borderBottom: '1px solid #eee' } },
                   e('select', { 
                     value: mapping[i] || '', 
-                    onChange: (e) => updateMapping(i, e.target.value),
+                    onChange: (ev) => updateMapping(i, ev.target.value),
                     style: { padding: '4px 8px', borderRadius: 4, border: '1px solid #ddd', fontSize: 12 }
                   }, FIELD_OPTIONS.map(opt => e('option', { key: opt.value, value: opt.value }, opt.label)))
                 )
@@ -562,15 +552,15 @@ function CSVUpload({ onUpload, onClose }) {
           style: !hasRequiredFields() ? { opacity: 0.5, cursor: 'not-allowed' } : {}
         }, 'Import ' + rows.filter(r => r.join('').trim()).length + ' Rows')
       )
-    ) : null
+    )
   );
 }
 
 // ── List View ──
 function ListView({ classes, day, onEdit, onDelete }) {
   const groups = useMemo(() => {
-    const g=[]; let last=null;
-    classes.forEach(c => { if(c.time!==last){g.push({time:c.time,items:[]});last=c.time;} g[g.length-1].items.push(c); });
+    const g=[]; let lastMin=null;
+    classes.forEach(c => { if(c.startMin!==lastMin){g.push({time:c.time,startMin:c.startMin,items:[]});lastMin=c.startMin;} g[g.length-1].items.push(c); });
     return g;
   }, [classes]);
 
